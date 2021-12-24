@@ -2,7 +2,6 @@ import re
 import asyncio
 import json
 import aiohttp
-from socketbase import Sendmethod
 from keywords import Get
 
 class Proxy:
@@ -13,7 +12,9 @@ class Proxy:
         self.url_list=[]
         self.proixes={}
         self.good_proixes={}
+        self.index=0
         self.target_url='https://miaomiao.scmttec.com/seckill/seckill/now2.do'
+        # self.target_url='https://www.baidu.com'
         self.header = {
             'host': 'miaomiao.scmttec.com'
             , 'accept': 'application/json, text/plain, */*'
@@ -98,35 +99,84 @@ class Proxy:
             self.url_list.append(('yundaili',url+str(i)))
 
 
+    async def crawl_ip(self,item):
+        timeout = aiohttp.ClientTimeout(total=10, connect=10, sock_connect=10, sock_read=10)
+        async with aiohttp.ClientSession(trust_env=True) as conn:
+            async with conn.get(item[1], timeout=timeout, ssl=False) as res:
+                response = await res.text()
+                if item[0] == 'kuaidaili':
+                    ips = re.findall('<td data-title="IP">(.*?)</td>', response)
+                    ports = re.findall('<td data-title="PORT">(.*?)</td>', response)
+                    for ip, port in zip(ips, ports):
+                        self.proixes[ip] = port
+                elif item[0] == 'xiaohuan':
+                    content = re.findall('<img src="/flag/CN.svg">(.*?) href="/address/5Lit5Zu9.html">', response)
+                    for i in content:
+                        ip = re.findall('(.*?)</a></td><td>', i)
+                        port = re.findall('</a></td><td>(.*?)</td><td><a', i)
+                        self.proixes[ip[0]] = port[0]
+                elif item[0] == 'ip66':
+                    ips = re.findall('<tr><td>(.*?)</td><td>', response)[1:]
+                    ports = re.findall('</td><td>(.*?)</td><td>', response)
+                    ports = list(filter(lambda x: x.isdigit(), ports))
+                    for ip, port in zip(ips, ports):
+                        self.proixes[ip] = port
+                elif item[0] == 'dieniao':
+                    ips = re.findall("<span class='f-address'>(.*?)</span>",response)[1:]
+                    ports = re.findall("<span class='f-port'>(.*?)</span>", response)
+                    ports = list(filter(lambda x: x.isdigit(), ports))
+                    for ip, port in zip(ips, ports):
+                        self.proixes[ip] = port
+                elif item[0] == 'kaixin':
+                    ips = Get.get_keyword(json.loads(response), 'ip')
+                    ports = Get.get_keyword(json.loads(response), 'port')
+                    for ip, port in zip(ips, ports):
+                        self.proixes[ip] = port
+                elif item[0] == 'yundaili':
+                    content = re.findall("<tr>(.*?)</tr>", response, re.S)[1:]
+                    for item in content:
+                        ip = re.findall("<td>(.*?)</td>", item)[0]
+                        port = re.findall("<td>(.*?)</td>", item)[1]
+                        self.proixes[ip] = port
+                self.index+=1
+                self.progress_bar('爬取IP进度',len(self.url_list))
+
+
+    def progress_bar(self,msg,length):
+        print('\r',f"{msg}: {int((self.index/length)*100)}%: ", "▋" * int((self.index / length)*100), end="")
+
+
     async def check_proxy(self,proxy):
         timeout = aiohttp.ClientTimeout(total=10, connect=10, sock_connect=10, sock_read=10)
         async with aiohttp.ClientSession(trust_env=True) as conn:
             async with conn.get(self.target_url,timeout=timeout,proxy=f'http://{proxy[0]}:{proxy[1]}',ssl=False,headers=self.header) as res:
+                self.index += 1
                 response = await res.text()
                 if response:
                     self.good_proixes[proxy[0]]=proxy[1]
+                    self.progress_bar('成功率', len(self.proixes))
 
 
     async def main(self):
-        tasks=[asyncio.ensure_future(self.check_proxy(proxy)) for proxy in self.proixes.items()]
+        self.kuaidaili()
+        self.xiaohuan()
+        self.ip66()
+        self.dieniao()
+        self.kaixin()
+        self.yundaili()
+        tasks = [asyncio.ensure_future(self.crawl_ip(item)) for item in self.url_list]   #爬取代理ip
+        await asyncio.gather(*tasks)
+        self.index=0   #重置index
+        tasks=[asyncio.ensure_future(self.check_proxy(proxy)) for proxy in self.proixes.items()]   #检查有效代理ip
         await asyncio.gather(*tasks,return_exceptions=True)
 
 
     def entrance(self):
-        self.kuaidaili()
         loop=asyncio.get_event_loop()
         loop.run_until_complete(self.main())
         print(self.good_proixes)
 
 
 if __name__ == '__main__':
-    # Proxy().entrance()
     a=Proxy()
-    a.kuaidaili()
-    a.xiaohuan()
-    a.ip66()
-    a.dieniao()
-    a.kaixin()
-    a.kaixin()
-    a.yundaili()
-    print(a.url_list)
+    a.entrance()
