@@ -123,6 +123,26 @@ class Proxy:
             #     self.proixes[ip] = port
             self.url_list.append(('daili89', url))
 
+
+    def zhandaye(self):
+        main_url='https://www.zdaye.com'
+        self.header={
+            'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0'
+        }
+        res = Sendmethod().method('get', main_url+'/dayProxy.html',headers=self.header)
+        main_pages = re.findall('<H3 class="thread_title"><a href="(.*?)">', res.text)
+        for main_page in main_pages[0:3]:
+            url=main_url+main_page
+            for x in range(6):
+                if x ==0:
+                    res = Sendmethod().method('get', url, headers=self.header,proxy={'https':'http://182.112.175.236:4231'})
+                else:
+                    res = Sendmethod().method('get', url[:-5]+'/'+str(x)+'.html', headers=self.header)
+                ips=re.findall('<a href="/ip/CheckHttp/(.*?)" title=', res.text)
+                for i in ips:
+                    self.proixes[i.split(':')[0]] = i.split(':')[1]
+
+
     async def crawl_ip(self,item):
         timeout = aiohttp.ClientTimeout(total=10, connect=10, sock_connect=10, sock_read=10)
         async with aiohttp.ClientSession(trust_env=True) as conn:
@@ -212,7 +232,6 @@ class Proxy:
     def entrance(self):
         loop=asyncio.get_event_loop()
         loop.run_until_complete(self.main())
-        print(self.good_proixes)
 
 
 if __name__ == '__main__':
