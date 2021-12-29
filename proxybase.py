@@ -35,7 +35,6 @@ class Proxy:
             # ports=re.findall('<td data-title="PORT">(.*?)</td>',res.text)
             # for ip,port in zip(ips,ports):
             #     self.proixes[ip]=port
-
             self.url_list.append(('kuaidaili',url+str(i)+'/'))
 
 
@@ -135,12 +134,9 @@ class Proxy:
             url=main_url+main_page
             for x in range(6):
                 if x ==0:
-                    res = Sendmethod().method('get', url, headers=self.header,proxy={'https':'http://182.112.175.236:4231'})
+                    self.url_list.append(('zhandaye', url))
                 else:
-                    res = Sendmethod().method('get', url[:-5]+'/'+str(x)+'.html', headers=self.header)
-                ips=re.findall('<a href="/ip/CheckHttp/(.*?)" title=', res.text)
-                for i in ips:
-                    self.proixes[i.split(':')[0]] = i.split(':')[1]
+                    self.url_list.append(('zhandaye', url[:-5]+'/'+str(x)+'.html'))
 
 
     async def crawl_ip(self,item):
@@ -194,6 +190,10 @@ class Proxy:
                     ports = [content[index].strip('\n').strip('\t') for index in range(1, len(content), 5)]
                     for ip, port in zip(ips, ports):
                         self.proixes[ip] = port
+                elif item[0] == 'zhandaye':
+                    ips = re.findall('<a href="/ip/CheckHttp/(.*?)" title=', response)
+                    for i in ips:
+                        self.proixes[i.split(':')[0]] = i.split(':')[1]
                 self.index+=1
                 self.progress_bar('爬取IP进度',len(self.url_list))
 
@@ -208,7 +208,7 @@ class Proxy:
             async with conn.get(self.target_url,timeout=timeout,proxy=f'http://{proxy[0]}:{proxy[1]}',ssl=False) as res:
                 self.index += 1
                 response = await res.text()
-                if response:
+                if res.status in (200,201,202,203,204,205,206) and response:
                     self.good_proixes[proxy[0]]=proxy[1]
                     self.progress_bar('成功率', len(self.proixes))
 
@@ -222,6 +222,7 @@ class Proxy:
         self.yundaili()
         self.freedaili()
         self.daili89()
+        self.zhandaye()
         tasks = [asyncio.ensure_future(self.crawl_ip(item)) for item in self.url_list]   #爬取代理ip
         await asyncio.gather(*tasks,return_exceptions=True)
         self.index=0   #重置index
@@ -236,5 +237,5 @@ class Proxy:
 
 if __name__ == '__main__':
     a=Proxy()
-    a.entrance()
-    print(a.good_proixes)
+    a.zhandaye()
+    print(a.proixes)
