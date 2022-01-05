@@ -140,7 +140,7 @@ class Proxy:
 
 
     async def crawl_ip(self,item):
-        timeout = aiohttp.ClientTimeout(total=10, connect=10, sock_connect=10, sock_read=10)
+        timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(trust_env=True) as conn:
             async with conn.get(item[1], timeout=timeout, ssl=False) as res:
                 response = await res.text()
@@ -203,7 +203,7 @@ class Proxy:
 
 
     async def check_proxy(self,proxy):
-        timeout = aiohttp.ClientTimeout(total=10, connect=10, sock_connect=10, sock_read=10)
+        timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(trust_env=True) as conn:
             async with conn.get(self.target_url,timeout=timeout,proxy=f'http://{proxy[0]}:{proxy[1]}',ssl=False) as res:
                 self.index += 1
@@ -237,5 +237,5 @@ class Proxy:
 
 if __name__ == '__main__':
     a=Proxy()
-    a.zhandaye()
-    print(a.proixes)
+    a.entrance()
+    print(a.good_proixes)
